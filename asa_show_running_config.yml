@@ -1,0 +1,45 @@
+---
+- name: Download running config
+  hosts: all
+  gather_facts: no
+  vars:
+    - output_directory: ./output
+    - ansible_command_timeout: 60
+    - ansible_connect_timeout: 60
+    
+  tasks:  
+    - name: show running-config
+      asa_command:
+        commands: 
+          - show run
+      register: output
+
+    - name: debug show running-config
+      debug:
+        msg: "{{ output.stdout_lines }}"
+      tags:
+        - debug
+ 
+    - name: Gather ansible facts from localhost
+      setup:
+      delegate_to: localhost
+      run_once: yes
+
+    - name: Set Facts (time)
+      set_fact:
+        yyyymmdd: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}"
+        yyyymmddhhmm: "{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}"
+      run_once: yes
+
+    - name: Create Output Directory
+      file:
+        path: "{{ output_directory }}/{{ yyyymmdd }}"
+        state: directory
+      run_once: yes
+      delegate_to: localhost
+      
+    - name: Write running-config to file
+      copy:
+        content: "{{ output.stdout.0 }}"
+        dest: "{{ output_directory }}/{{ yyyymmdd }}/{{ inventory_hostname }}-running-config-{{ yyyymmddhhmm }}.txt"
+      delegate_to: localhost
